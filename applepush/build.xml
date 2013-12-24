@@ -1,0 +1,424 @@
+<?xml version="1.0"?>
+
+<project name="SFG" basedir="." default="all">
+
+	<!-- Setup the PROJECT PROPERTIES -->
+	<property file="build.properties"/>
+	<property name="project.dir" value="." />
+	<property name="src.dir" value="docroot/src"/>
+	<property name="web.dir" value="docroot/web"/>
+	<property name="xsd.dir" value="docroot/web/schemas"/>
+	<property name="env.dir" value="docroot/env"/>
+	<property name="build.dir" value="${web.dir}/WEB-INF/classes"/>
+
+	<path id="master-classpath">
+		<fileset dir="${web.dir}/WEB-INF/lib">
+			<include name="*.jar"/>
+		</fileset>
+		<fileset dir="${appserver.lib}">
+			<include name="servlet*.jar"/>
+		</fileset>
+		<pathelement path="${build.dir}"/>
+	</path>
+	
+	<taskdef name="xjc" classname="com.sun.tools.xjc.XJCTask">
+      <classpath>
+        <fileset dir="/Users/pomalley/Dev/eclipse4.3/jaxb/lib" includes="*.jar" />
+      </classpath>
+    </taskdef>
+
+	
+	<!-- Setup the CLEAN BUILD TARGETS -->
+
+	<target name="all">
+		<antcall target="all-local" />
+	</target>
+
+	<target name="all-local">
+		<antcall target="deploy">
+			<param name="env" value="local" />
+			<param name="name" value="ROOT" />
+		</antcall>
+	</target>
+
+	<target name="all-demo">
+		<antcall target="deploy">
+			<param name="env" value="demo" />
+			<param name="name" value="demo" />
+		</antcall>
+	</target>
+
+	<target name="all-clean-local">
+		<antcall target="clean" />
+		<antcall target="deploy">
+			<param name="env" value="local" />
+			<param name="name" value="ROOT" />
+		</antcall>
+	</target>
+
+	<target name="all-clean-demo">
+		<antcall target="clean" />
+		<antcall target="deploy">
+			<param name="env" value="demo" />
+			<param name="name" value="demo" />
+		</antcall>
+	</target>
+
+	<!-- Setup the BUILD SUB TARGETS -->
+	<!-- CLEAN BUILD TARGET -->
+	<target name="clean" description="Clean output directories">
+		<echo message="Deleting class files from: ${build.dir}"/>
+		<delete>
+			<fileset dir="${build.dir}">
+				<include name="**/*.class"/>
+			</fileset>
+		</delete>
+
+		<delete>
+			<fileset dir="${deploy.path}/ROOT/WEB-INF">
+				<include name="**/*.class"/>
+				<include name="**/*.properties"/>
+				<include name="**/*.xml"/>
+			</fileset>
+			<fileset dir="${deploy.path}/ROOT/jsp">
+				<include name="**/*.jsp"/>
+			</fileset>
+			<fileset dir="${deploy.path}/ROOT/jsp">
+				<include name="**/*.css"/>
+			</fileset>
+		</delete>
+
+		<delete>
+			<fileset dir="${deploy.path}/demo/WEB-INF">
+				<include name="**/*.class"/>
+				<include name="**/*.properties"/>
+				<include name="**/*.xml"/>
+			</fileset>
+			<fileset dir="${deploy.path}/demo/jsp">
+				<include name="**/*.jsp"/>
+			</fileset>
+			<fileset dir="${deploy.path}/demo/jsp">
+				<include name="**/*.css"/>
+			</fileset>
+		</delete>
+
+
+		<!-- CLEAN BUILD TARGET 
+		<echo message="Deleting deploy target: ${deploy.path}/${name}"/>
+		<delete includeemptydirs="true">
+			<fileset dir="${deploy.path}/${name}">
+ 				<include name="**/*" />
+			</fileset>
+		</delete>
+		-->
+	</target>
+
+	<!-- COMPILE SOURCE -->
+	<target name="build"  description="Compile main source tree java files">
+		<mkdir dir="${build.dir}"/>
+		<javac destdir="${build.dir}" source="1.6" target="1.6" debug="true"
+			deprecation="false" optimize="false" failonerror="true" includeantruntime="false">
+			<src path="${src.dir}"/>
+			<classpath refid="master-classpath"/>
+		</javac>
+		<copy todir="${build.dir}" preservelastmodified="true">
+			<fileset dir="${src.dir}">
+				<include name="**/*.xml"/>
+			</fileset>
+		</copy>
+	</target>
+
+	<!-- BUILD WS SOURCE -->
+	<target name="buildJavaWS"  description="Create the java webservices source files">
+      <echo message="Compiling the schema..." />
+      <xjc destdir="${src.dir}">
+        <schema  dir="${xsd.dir}" includes="*.xsd"/>
+      </xjc>
+ 	</target>
+
+		<!-- COMPILE and CLEAN BUILD TARGET -->
+	<target name="deploy" depends="build" description="Deploy application">
+		<echo message="Deploy code to: ${deploy.path}/${name}" />
+
+		<!-- Copy SP, CSS, JS and Image files to the web directory -->
+		<echo message="Deploying JSP, CSS, JS and Image files from ${web.dir}"/>
+		<copy todir="${deploy.path}/${name}" preservelastmodified="true">
+			<fileset dir="${web.dir}">
+				<include name="**/*.*"/>
+			</fileset>
+		</copy>
+
+		<!-- Copy the java classes and MyBatis xml files to the webapp classes directory -->
+		<echo message="Deploying Java and XML files from ${web.dir}/WEB-INF/classes"/>
+		<copy todir="${deploy.path}/${name}" preservelastmodified="true">
+			<fileset dir="${web.dir}">
+				<include name="WEB-INF/classes/*.*"/>
+			</fileset>
+		</copy>
+
+		<!-- Copy the specific environment files to the webapp classes directory -->
+		<echo message="Deploying env specific property files from ${env.dir}/${env}"/>
+		<copy todir="${deploy.path}/${name}/WEB-INF/classes" preservelastmodified="true">
+			<fileset dir="${env.dir}/${env}">
+				<include name="*.properties"/>
+				<include name="log4j.xml"/>
+			</fileset>
+		</copy>
+
+		<!-- Copy the specific environment files to the webapp classes directory -->
+		<echo message="Deploying env specific property files from ${env.dir}/${env}"/>
+		<copy todir="${deploy.path}/${name}/WEB-INF" preservelastmodified="true">
+			<fileset dir="${env.dir}/${env}">
+				<include name="config.xml"/>
+			</fileset>
+		</copy>
+
+		<!-- Clear the Tomcat work directory -->
+		<delete includeemptydirs="true">
+			<fileset dir="${appserver.home}/work">
+				<include name="**/*" />
+			</fileset>
+		</delete>
+	</target>
+
+	<!-- COMPILE and CLEAN BUILD TARGET -->
+	<target name="deploy-root2" description="prepare to deploy application">
+		<echo message="Deploy code to: ${deploy.path}/ROOT2" />
+
+		<!-- Clear the ROOT2 -->
+		<delete includeemptydirs="true">
+			<fileset dir="${deploy.path}/ROOT2">
+				<include name="**/*" />
+			</fileset>
+		</delete>
+
+		<delete includeemptydirs="true">
+			<fileset dir="${deploy.path}">
+				<include name="root.tgz" />
+			</fileset>
+		</delete>
+
+		<!-- Copy JSP, CSS and class files to the ROOT2 directory -->
+		<echo message="Deploying JSP, CSS, JS and Image files from ${deploy.path}/ROOT"/>
+		<copy todir="${deploy.path}/ROOT2" preservelastmodified="true">
+			<fileset dir="${deploy.path}/ROOT">
+				<include name="jsp/*.*"/>
+				<include name="css/*.*"/>
+				<include name="WEB-INF/**/*.*"/>
+			</fileset>
+		</copy>
+		
+		<tar destfile="${deploy.path}/root2.tgz" basedir="${deploy.path}"
+			includes="ROOT2/**" compression="gzip"/>
+		
+	</target>
+
+	<!-- REMOTE DEPLOYMENT TARGETS -->
+	<!-- Build and deploy ENV WAR FILES -->
+	<target name="deploywar" depends="build" description="Deploy application as a WAR file">
+		<condition property="env" value="local">
+			<not><isset property="env" /></not>
+		</condition>
+		<condition property="warname" value="ROOT">
+			<not><isset property="warname" /></not>
+		</condition>
+
+		<echo message="The Environment is: ${env},  The WAR file name is: ${warname}"/>
+
+		<!-- Put the right env stuff into ${web.dir}. -->
+		<copy todir="${web.dir}/WEB-INF/classes" preservelastmodified="true">
+			<fileset dir="${env.dir}/${env}">
+				<include name="*.*"/>
+			</fileset>
+		</copy>
+		
+		<!-- Copy the common environment parts over -->
+		<copy todir="${web.dir}/WEB-INF/classes" preservelastmodified="true">
+			<fileset dir="${env.dir}/common">
+				<include name="*.*"/>
+			</fileset>
+		</copy>
+
+		<!-- Build the war from the ${web.dir} directory. -->
+		<war destfile="${deploy.path}/${warname}.war"
+             webxml="${web.dir}/WEB-INF/web.xml">
+			<fileset dir="${web.dir}">
+				<include name="**/*.*"/>
+			</fileset>
+		</war>
+		
+
+		<copy todir="${deploy.path}" preservelastmodified="true">
+			<fileset dir=".">
+				<include name="*.war"/>
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="undeploy" description="Un-Deploy application">
+		<delete includeemptydirs="true">
+			<fileset dir="${deploy.path}/${name}">
+				<include name="**/**"/>
+			</fileset>
+		</delete>
+	</target>
+
+	<!-- DATA TARGETS -->
+	<!-- LOAD DATABASE SNAPSHOT -->
+	<target name="database-load-snapshot" description="Load database from snapshot.">
+		<exec executable="${db.loader}">
+			<env key="PGPASSWORD" value="${db.password}" />
+			<arg value="-U${db.username}" />
+			<arg value="-h${db.hostname}" />
+			<arg value="-f${snapshot.fullname}" />
+			<arg value="${db.name}" />
+		</exec>
+	</target>
+
+	<!-- DUMP DATABASE -->
+	<target name="database-save-snapshot" description="Save database to snapshot.">
+		<exec executable="${db.dumper}">
+			<env key="PGPASSWORD" value="${db.password}" />
+			<arg value="-c" />
+			<arg value="-U${db.username}" />
+			<arg value="-h${db.hostname}" />
+			<arg value="-f${snapshot.fullname}" />
+			<arg value="${db.name}" />
+		</exec>
+	</target>
+	
+	<!-- LOAD BASE DATABASE -->
+	<target name="database-load-tables" description="Load database from sql file.">
+		<condition property="env" value="local">
+			<not>
+				<isset property="env" />
+			</not>
+		</condition>
+		
+		<property file="${env.dir}/${env}/build.properties" />
+		
+		<echo message="Load tables using: {db.driver} ${db.url}"/>
+		<sql driver="${db.driver}"
+				url="${db.url}"
+				userid="${db.username}"
+	            password="${db.password}"
+				onerror="continue"
+				src="db/tables.sql">
+			<classpath refid="master-classpath"/>
+		</sql>
+	</target>
+	
+	<target name="database-load-data" description="Load data from sql file.">
+		<condition property="env" value="local">
+			<not>
+				<isset property="env" />
+			</not>
+		</condition>
+		
+		<property file="${env.dir}/${env}/build.properties" />
+		
+		<echo message="Load data using: ${db.driver} ${db.url}"/>
+		<sql driver="${db.driver}"
+				url="${db.url}"
+				userid="${db.username}"
+	            password="${db.password}"
+				onerror="continue"
+				src="db/load_data.sql">
+			<classpath refid="master-classpath"/>
+		</sql>
+	</target>
+
+	<target name="database-remove-tables" description="Remove all tables from database.">
+		<condition property="env" value="local">
+			<not>
+				<isset property="env" />
+			</not>
+		</condition>
+		
+		<property file="${env.dir}/${env}/build.properties" />
+		
+		<echo message="Load data using: ${db.driver} ${db.url}"/>
+		<sql driver="${db.driver}"
+				url="${db.url}"
+				userid="${db.username}"
+	            password="${db.password}"
+				onerror="continue"
+				src="db/drop_tables.sql">
+			<classpath refid="master-classpath"/>
+		</sql>
+	</target>
+
+	<target name="deploy-DEV" depends="deploywar"  description="Deploy project to remote development environment.">
+
+		<property file="${env.dir}/${env}/build.properties" />
+
+		<!-- Deploy the application to the Development environment  -->
+		<antcall target="remote-deploy" inheritall="false">
+			<param name="local.deploy.path" value="${deploy.path}"/>
+			<param name="deploy.host" value="${deploy.server}"/>
+			<param name="deploy.path" value="${deploy.base.path}"/>
+			<param name="deploy.user" value="${scp.user}"/>
+			<param name="deploy.keyfile" value="${scp.keyfile}" />
+			<param name="deploy.env" value="dev"/>
+			<property name="warname" value="ROOT"/>
+		</antcall>
+	</target>
+
+	<target name="deploy-QA" depends="deploywar" description="Deploy project to remote QA environment.">
+		<property file="${env.dir}/${env}/build.properties" />
+		<property name="warname" value="ROOT"/>
+		<!-- Deploy the application to the QA environment  -->
+		<antcall target="remote-deploy" inheritall="false">
+			<param name="local.deploy.path" value="${deploy.path}"/>
+			<param name="deploy.host" value="${deploy.server}"/>
+			<param name="deploy.path" value="${deploy.base.path}"/>
+			<param name="deploy.user" value="${scp.user}"/>
+			<param name="deploy.keyfile" value="${scp.keyfile}" />
+			<param name="deploy.env" value="qa"/>
+		</antcall>
+	</target>
+	
+	<target name="deploy-STAGING" depends="deploywar" description="Deploy project to remote Staging environment.">
+		<property file="${env.dir}/${env}/build.properties" />
+		<!-- Deploy the application to the QA environment  -->
+		<antcall target="remote-deploy" inheritall="false">
+			<param name="local.deploy.path" value="${deploy.path}"/>
+			<param name="deploy.host" value="${deploy.server}"/>
+			<param name="deploy.path" value="${deploy.base.path}"/>
+			<param name="deploy.user" value="${scp.user}"/>
+			<param name="deploy.keyfile" value="${scp.keyfile}" />
+			<param name="deploy.env" value="staging"/>
+		</antcall>
+	</target>
+
+	<target name="remote-deploy">
+		<!-- Deploy the application to the environment that is passed in  -->
+		<echo message="The deploy-host is ${deploy.host} and the deploy-path is ${deploy.path}" />
+		<echo message="The deploy-user is ${deploy.user}" />
+
+		<!-- Shutdown tomcat in the remote environement, then clean the temp and work directories -->
+		<sshexec host="${deploy.host}" username="${deploy.user}" keyfile="${deploy.keyfile}" 
+	               failonerror="false" trust="true"
+	               command="${deploy.path}/bin/shutdown.sh"  />
+
+		<sshexec host="${deploy.host}" username="${deploy.user}" keyfile="${deploy.keyfile}" 
+	               failonerror="false" trust="true"
+	               command="rm -rf ${deploy.path}/work/*"  />
+
+		<sshexec host="${deploy.host}" username="${deploy.user}" keyfile="${deploy.keyfile}" 
+	               failonerror="false" trust="true"
+	               command="rm -rf ${deploy.path}/temp/*"  />
+
+		<!-- Copy all WAR files in the plugins/components/dist folder to the remote environment -->
+		<scp todir="${deploy.user}@${deploy.host}:${deploy.path}/webapps"
+	               keyfile="${deploy.keyfile}" passphrase="No" trust="true"  >
+			<fileset dir="${local.deploy.path}" includes="*.war" />
+		</scp>
+
+		<!-- Startup tomcat in the remote environement -->
+		<sshexec host="${deploy.host}" username="${deploy.user}" keyfile="${deploy.keyfile}" 
+                    failonerror="true" trust="true"
+                command="${deploy.path}/bin/startup.sh"  />
+	</target>
+
+</project>
